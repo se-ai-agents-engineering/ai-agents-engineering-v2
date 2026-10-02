@@ -27,9 +27,18 @@ CATEGORIAS = ("rh", "ti", "beneficios", "elegibilidade")
 #   - "elegibilidade" é quando a pessoa pergunta se ELA tem direito a algo;
 #   - peça a resposta em minúsculas, sem pontuação.
 # --------------------------------------------------------------------------
-PROMPT_CLASSIFICADOR = """
-(escreva aqui)
-"""
+PROMPT_CLASSIFICADOR = """Você é um classificador de perguntas de suporte interno da Aurora Tecnologia.
+Classifique a pergunta em exatamente UMA das seguintes categorias:
+
+- rh: trabalho remoto, home office, dias presenciais, jornada, banco de horas, férias, licenças (paternidade, maternidade), integração.
+- ti: equipamentos (notebook, conserto, danos, tela quebrada), senhas, bloqueio de conta, login, VPN, acesso remoto a sistemas, instalação de software.
+- beneficios: plano de saúde, dependentes, auxílio-creche, vale-refeição.
+- elegibilidade: quando a pessoa pergunta se ELA PESSOALMENTE tem direito ou é elegível a algo (ex: "tenho direito a...?", "posso ter...?").
+
+Regras:
+- Responda APENAS com uma das quatro palavras: rh, ti, beneficios ou elegibilidade.
+- Responda sempre em minúsculas, sem pontuação, sem nenhuma explicação."""
+
 
 
 def classificar(pergunta: str) -> str:
@@ -39,24 +48,25 @@ def classificar(pergunta: str) -> str:
 
     # TODO 1 (continuação): e se o modelo responder algo fora de CATEGORIAS?
     # Decida um comportamento padrão e devolva sempre uma categoria válida.
-    raise NotImplementedError("TODO 1: trate a resposta do classificador em arquitetura_b.py")
+    return categoria if categoria in CATEGORIAS else "elegibilidade"
 
 
 def resolver(pergunta: str) -> Resultado:
     categoria = classificar(pergunta)
 
-    # ----------------------------------------------------------------------
-    # TODO 2 — o roteamento
-    #
-    # a) Se a categoria for "elegibilidade", devolva direto:
-    #        Resultado("escalar", [], "texto explicando que o RH vai analisar")
-    #    (repare: esse caminho nem chama o modelo)
-    #
-    # b) Senão, busque os documentos do tema:   docs = buscar(categoria, pergunta)
-    #    Se não vier nenhum documento, devolva Resultado("nao_sei", [], "...").
-    #
-    # c) Monte o prompt de sistema com REGRAS, FORMATO_JSON e os documentos
-    #    (veja como a arquitetura_a.py faz com formatar), chame o modelo
-    #    e devolva Resultado.de_json(resposta.texto).
-    # ----------------------------------------------------------------------
-    raise NotImplementedError("TODO 2: escreva o roteamento em arquitetura_b.py")
+    # a) Se a categoria for "elegibilidade", devolva direto sem chamar o modelo
+    if categoria == "elegibilidade":
+        return Resultado("escalar", [], "Dúvidas sobre elegibilidade a benefícios são analisadas diretamente pelo RH.")
+
+    # b) Senão, busque os documentos do tema
+    docs = buscar(categoria, pergunta)
+    if not docs:
+        return Resultado("nao_sei", [], "Não foram encontrados documentos sobre o tema solicitado.")
+
+    # c) Monte o prompt de sistema com REGRAS, FORMATO_JSON e os documentos, chame o modelo e devolva Resultado.de_json
+    documentos = "\n\n".join(formatar(doc) for doc in docs)
+    sistema = f"{REGRAS}\n\n{FORMATO_JSON}\n\nDocumentos disponíveis:\n\n{documentos}"
+
+    resposta = modelo.chamar([modelo.mensagem_do_usuario(pergunta)], sistema=sistema)
+    return Resultado.de_json(resposta.texto)
+
