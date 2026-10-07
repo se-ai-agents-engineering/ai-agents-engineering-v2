@@ -77,11 +77,11 @@ FERRAMENTAS = [
 # passos (chamadas ao modelo) o agente pode dar por pergunta e implemente
 # deve_parar. Guarde esse número: ele vai para o ADR da equipe.
 # --------------------------------------------------------------------------
-MAX_PASSOS = None  # ex.: 6
+MAX_PASSOS = 5  # ex.: 6
 
 
 def deve_parar(passos: int) -> bool:
-    raise NotImplementedError("TODO 3: defina MAX_PASSOS e implemente deve_parar em arquitetura_c.py")
+    return passos >= MAX_PASSOS
 
 
 def executar(chamada: modelo.Chamada) -> str:
@@ -115,7 +115,20 @@ def resolver(pergunta: str) -> Resultado:
         #   mensagens.append(modelo.mensagem_do_assistente(resposta))
         #   mensagens.append(modelo.mensagem_de_resultados(pares))
         # ------------------------------------------------------------------
-        raise NotImplementedError("TODO 4: escreva o corpo do loop em arquitetura_c.py")
+        pares = []
+        for chamada in resposta.chamadas:
+            if chamada.nome == "responder":
+                return Resultado.de_dict(chamada.args)
+            elif chamada.nome == "escalar_para_rh":
+                return Resultado("escalar", [], chamada.args.get("motivo", ""))
+            else:
+                texto = executar(chamada)
+                pares.append((chamada, texto))
+
+        mensagens.append(modelo.mensagem_do_assistente(resposta))
+        mensagens.append(modelo.mensagem_de_resultados(pares))
+        # ------------------------------------------------------------------
+
 
     # Acabaram os passos sem resposta: sair escalando também é um desfecho projetado.
     return Resultado("escalar", [], f"Não consegui concluir em {passos} passos. Encaminhado ao RH.")
